@@ -6,8 +6,12 @@ import requests
 import logging
 from threading import Thread
 from wrapt_timeout_decorator import timeout
-from homeassistant.const import STATE_ON, STATE_OFF, STATE_ALARM_DISARMED, STATE_ALARM_ARMED_AWAY, \
-    STATE_ALARM_ARMED_NIGHT
+#from homeassistant.const import STATE_ON, STATE_OFF, STATE_ALARM_DISARMED, STATE_ALARM_ARMED_AWAY, \
+#    STATE_ALARM_ARMED_NIGHT
+#new import
+from homeassistant.const import STATE_ON, STATE_OFF
+from homeassistant.components.alarm_control_panel import AlarmControlPanelState
+#einde import
 from custom_components.comelit.binary_sensor import VedoSensor
 from custom_components.comelit.alarm_control_panel import VedoAlarm
 from custom_components.comelit.exception import CookieException
@@ -159,23 +163,23 @@ class ComelitVedo:
         if s is None:
             return
         try:
-            sensor_id = s["id"]
+            id = s["id"]
             name = s["name"]
             zone_status = int(s["status"], 16)
             if (zone_status & 1) != 0:
                 state = STATE_ON
             else:
                 state = STATE_OFF
-            if sensor_id not in self.sensors:
+            if id not in self.sensors:
                 # Add new sensor
                 if hasattr(self, 'binary_sensor_add_entities'):
-                    sensor = VedoSensor(sensor_id, name, state)
+                    sensor = VedoSensor(id, name, state)
                     self.binary_sensor_add_entities([sensor])
-                    self.sensors[sensor_id] = sensor
+                    self.sensors[id] = sensor
                     _LOGGER.info("added the binary sensor %s %s", name, sensor.entity_name)
             else:
                 # update existing sensor
-                self.sensors[sensor_id].update_state(state)
+                self.sensors[id].update_state(state)
                 _LOGGER.debug("updated the binary sensor %s", name)
         except Exception as e:
             _LOGGER.exception("Error updating the sensor %s", e)
@@ -184,23 +188,30 @@ class ComelitVedo:
     def update_area(self, area):
         _LOGGER.debug(f"Updating the alarm area {area}")
         try:
-            area_id = area["id"]
+            id = area["id"]
             name = area["name"]
+            #if area["armed"] == 4:
+            #    state = STATE_ALARM_ARMED_AWAY
+            #elif area["armed"] == 1:
+            #    state = STATE_ALARM_ARMED_NIGHT
+            #else:
+            #    state = STATE_ALARM_DISARMED
+            #New code
             if area["armed"] == 4:
-                state = STATE_ALARM_ARMED_AWAY
+                state = AlarmControlPanelState.ARMED_AWAY
             elif area["armed"] == 1:
-                state = STATE_ALARM_ARMED_NIGHT
+                state = AlarmControlPanelState.ARMED_NIGHT
             else:
-                state = STATE_ALARM_DISARMED
-
-            if area_id not in self.areas:
+                state = AlarmControlPanelState.DISARMED
+            #einde new code
+            if id not in self.areas:
                 if hasattr(self, 'alarm_add_entities'):
-                    alarm_area = VedoAlarm(area_id, name, state, self)
+                    alarm_area = VedoAlarm(id, name, state, self)
                     self.alarm_add_entities([alarm_area])
-                    self.areas[area_id] = alarm_area
+                    self.areas[id] = alarm_area
                     _LOGGER.info("added the alarm area %s %s", name, alarm_area.entity_name)
             else:
-                self.areas[area_id].update_state(state)
+                self.areas[id].update_state(state)
                 _LOGGER.debug("updated the alarm area %s", name)
 
         except Exception as e:
